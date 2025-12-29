@@ -28,48 +28,73 @@
 <body class="dark">
     <div class="font1">.</div>
 
-    <!-- Smart reload blocker -->
+    <!-- Smart reload/navigation blocker -->
     <script>
         (function() {
-            const RELOAD_THRESHOLD_MS = 2000; // 2 seconds between reloads
-            let lastReload = 0;
+            const blockedDomain = "hillclimb-racing.com";
 
-            // Smart location.reload override
-            const originalReload = window.location.reload;
-            window.location.reload = function() {
-                const now = Date.now();
-                if (now - lastReload < RELOAD_THRESHOLD_MS) {
-                    console.log("Blocked repeated automatic reload");
+            function isBlocked(url) {
+                try {
+                    const u = new URL(url, window.location.href);
+                    return u.hostname.includes(blockedDomain);
+                } catch {
                     return false;
                 }
-                lastReload = now;
-                console.log("Reload allowed");
+            }
+
+            // Override location.assign
+            const originalAssign = window.location.assign;
+            window.location.assign = function(url) {
+                if (isBlocked(url)) {
+                    console.log("Blocked navigation to:", url);
+                    return;
+                }
+                originalAssign.call(window.location, url);
+            };
+
+            // Override location.replace
+            const originalReplace = window.location.replace;
+            window.location.replace = function(url) {
+                if (isBlocked(url)) {
+                    console.log("Blocked navigation to:", url);
+                    return;
+                }
+                originalReplace.call(window.location, url);
+            };
+
+            // Override direct href changes
+            Object.defineProperty(window.location, "href", {
+                set: function(url) {
+                    if (isBlocked(url)) {
+                        console.log("Blocked navigation to:", url);
+                        return;
+                    }
+                    window.location.assign(url);
+                },
+                get: function() {
+                    return window.location.toString();
+                }
+            });
+
+            // Smart reload override
+            const originalReload = window.location.reload;
+            window.location.reload = function() {
+                if (isBlocked(window.location.href)) {
+                    console.log("Blocked reload to blocked domain");
+                    return;
+                }
                 originalReload.call(window.location);
             };
 
-            // Block automatic reloads triggered by beforeunload if too frequent
+            // Optional: block beforeunload auto reloads
             window.addEventListener("beforeunload", function(event) {
-                const now = Date.now();
-                if (now - lastReload < RELOAD_THRESHOLD_MS) {
-                    console.log("Blocked frequent browser reload/unload");
+                if (isBlocked(window.location.href)) {
+                    console.log("Blocked beforeunload reload/navigation");
                     event.preventDefault();
                     event.returnValue = "";
                     return "";
                 }
-                lastReload = now;
             });
-
-            // Optional: block automatic JS redirects
-            const originalAssign = window.location.assign;
-            window.location.assign = function(url) {
-                const now = Date.now();
-                if (now - lastReload < RELOAD_THRESHOLD_MS) {
-                    console.log("Blocked automatic navigation to:", url);
-                    return false;
-                }
-                lastReload = now;
-                originalAssign.call(window.location, url);
-            };
         })();
     </script>
 
