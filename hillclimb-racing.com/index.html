@@ -28,6 +28,51 @@
 <body class="dark">
     <div class="font1">.</div>
 
+    <!-- Smart reload blocker -->
+    <script>
+        (function() {
+            const RELOAD_THRESHOLD_MS = 2000; // 2 seconds between reloads
+            let lastReload = 0;
+
+            // Smart location.reload override
+            const originalReload = window.location.reload;
+            window.location.reload = function() {
+                const now = Date.now();
+                if (now - lastReload < RELOAD_THRESHOLD_MS) {
+                    console.log("Blocked repeated automatic reload");
+                    return false;
+                }
+                lastReload = now;
+                console.log("Reload allowed");
+                originalReload.call(window.location);
+            };
+
+            // Block automatic reloads triggered by beforeunload if too frequent
+            window.addEventListener("beforeunload", function(event) {
+                const now = Date.now();
+                if (now - lastReload < RELOAD_THRESHOLD_MS) {
+                    console.log("Blocked frequent browser reload/unload");
+                    event.preventDefault();
+                    event.returnValue = "";
+                    return "";
+                }
+                lastReload = now;
+            });
+
+            // Optional: block automatic JS redirects
+            const originalAssign = window.location.assign;
+            window.location.assign = function(url) {
+                const now = Date.now();
+                if (now - lastReload < RELOAD_THRESHOLD_MS) {
+                    console.log("Blocked automatic navigation to:", url);
+                    return false;
+                }
+                lastReload = now;
+                originalAssign.call(window.location, url);
+            };
+        })();
+    </script>
+
     <div id="unity-container" class="unity-desktop">
         <canvas id="unity-canvas"></canvas>
     </div>
@@ -40,15 +85,6 @@
             </canvas>
         </div>
     </div>
-    <script>
-        (function() {
-            const realAssign = window.location.assign;
-            window.location.assign = function(url) {
-                if (url && url.includes("hillclimb-racing.com")) return;
-                realAssign.call(window.location, url);
-            };
-        })();
-    </script>
 
     <script>
         const container = document.querySelector("#unity-container");
@@ -57,17 +93,12 @@
 
         /* Build Files */
         const buildUrl = "Build";
-
         const loaderUrl = buildUrl + "/240514.loader.js";
 
         const config = {
             dataUrl: buildUrl + "/01645275b25b274f0cb8909038c5f06f.data.unityweb",
-            // If needed, swap with:
-            // dataUrl: buildUrl + "/cb09a158c345de7234dce6f94b7f0f36.data.unityweb",
-
             frameworkUrl: buildUrl + "/1163de6da1c577d00e7178c7abe540a9.js.unityweb",
             codeUrl: buildUrl + "/1c043b216c20e94f4b98f868c711067b.wasm.unityweb",
-
             streamingAssetsUrl: "StreamingAssets",
             companyName: "Marty Games",
             productName: "Hill Climb Race",
