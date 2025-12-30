@@ -2,10 +2,10 @@
 <html lang="en-us">
 
 <head>
-    <base href="https://martinmmcyt.github.io/hill-climb-race/">
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+
     <title>Hill Climb Race</title>
     <link rel="shortcut icon" href="favicon.png">
     <link rel="stylesheet" href="TemplateData/style.css">
@@ -22,79 +22,77 @@
             left: -10000px;
             visibility: hidden;
         }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+        }
     </style>
 </head>
 
 <body class="dark">
     <div class="font1">.</div>
 
-    <!-- Smart reload/navigation blocker -->
     <script>
-        (function() {
-            const blockedDomain = "hillclimb-racing.com";
+        (() => {
+            const BLOCKED = ["hillclimb-racing.com"];
+            const SAFE_PATH = "/hill-climb-race/";
 
             function isBlocked(url) {
                 try {
-                    const u = new URL(url, window.location.href);
-                    return u.hostname.includes(blockedDomain);
+                    const u = new URL(url, location.href);
+                    return BLOCKED.some(d => u.hostname.includes(d));
                 } catch {
                     return false;
                 }
             }
 
-            // Override location.assign
-            const originalAssign = window.location.assign;
-            window.location.assign = function(url) {
-                if (isBlocked(url)) {
-                    console.log("Blocked navigation to:", url);
-                    return;
+            function trap() {
+                if (isBlocked(location.href)) {
+                    console.warn("🚫 Redirect trapped:", location.href);
+                    history.replaceState(null, "", SAFE_PATH);
                 }
-                originalAssign.call(window.location, url);
+            }
+
+            const _open = window.open;
+            window.open = function(url) {
+                if (isBlocked(url)) {
+                    console.warn("🚫 window.open blocked:", url);
+                    return null;
+                }
+                return _open.apply(this, arguments);
             };
 
-            // Override location.replace
-            const originalReplace = window.location.replace;
-            window.location.replace = function(url) {
-                if (isBlocked(url)) {
-                    console.log("Blocked navigation to:", url);
-                    return;
-                }
-                originalReplace.call(window.location, url);
+            const _push = history.pushState;
+            history.pushState = function() {
+                _push.apply(this, arguments);
+                trap();
             };
 
-            // Override direct href changes
-            Object.defineProperty(window.location, "href", {
-                set: function(url) {
-                    if (isBlocked(url)) {
-                        console.log("Blocked navigation to:", url);
-                        return;
-                    }
-                    window.location.assign(url);
-                },
-                get: function() {
-                    return window.location.toString();
+            const _replace = history.replaceState;
+            history.replaceState = function() {
+                _replace.apply(this, arguments);
+                trap();
+            };
+
+            new MutationObserver(mutations => {
+                for (const m of mutations) {
+                    m.addedNodes.forEach(node => {
+                        if (
+                            node.tagName === "META" &&
+                            node.httpEquiv?.toLowerCase() === "refresh"
+                        ) {
+                            console.warn("🚫 Meta refresh removed");
+                            node.remove();
+                        }
+                    });
                 }
+            }).observe(document.head, {
+                childList: true
             });
 
-            // Smart reload override
-            const originalReload = window.location.reload;
-            window.location.reload = function() {
-                if (isBlocked(window.location.href)) {
-                    console.log("Blocked reload to blocked domain");
-                    return;
-                }
-                originalReload.call(window.location);
-            };
-
-            // Optional: block beforeunload auto reloads
-            window.addEventListener("beforeunload", function(event) {
-                if (isBlocked(window.location.href)) {
-                    console.log("Blocked beforeunload reload/navigation");
-                    event.preventDefault();
-                    event.returnValue = "";
-                    return "";
-                }
-            });
+            setInterval(trap, 200);
         })();
     </script>
 
@@ -116,7 +114,6 @@
         const canvas = document.querySelector("#unity-canvas");
         const loadingCover = document.querySelector("#loading-cover");
 
-        /* Build Files */
         const buildUrl = "Build";
         const loaderUrl = buildUrl + "/240514.loader.js";
 
@@ -149,14 +146,10 @@
                     loadingCover.style.display = "none";
                     logo_loaded = true;
                 }, 1500);
-            }).catch((message) => {
-                alert(message);
-            });
+            }).catch(alert);
         };
-
         document.body.appendChild(script);
 
-        /* Loading Logic */
         let logo_loaded = false;
         let logo_loading_percent = 0;
         const logo_canvas = document.getElementById("logo-canvas");
@@ -172,11 +165,8 @@
             const sh = logo_canvas.height / 1080;
             p = Math.min(p, 1);
 
-            let pl = 1420 * p + 250;
-            let pw = 1420 - (1420 * p);
-
             ctx.drawImage(bg, 0, 0, logo_canvas.width, logo_canvas.height);
-            ctx.drawImage(fill, pl * sw, logo_canvas.height - (125 * sh), pw * sw, 54 * sh);
+            ctx.drawImage(fill, (250 + 1420 * p) * sw, logo_canvas.height - 125 * sh, (1420 - 1420 * p) * sw, 54 * sh);
 
             ctx.font = (56 * sw) + "px BRLNSDB";
             ctx.fillStyle = "#fff";
@@ -184,16 +174,16 @@
             ctx.lineWidth = 6;
 
             const txt = Math.floor(p * 100) + "%";
-            const tx = logo_canvas.width * 0.5 - ctx.measureText(txt).width * 0.5;
-            const ty = logo_canvas.height * 0.5 + 460 * sh;
+            const tx = logo_canvas.width / 2 - ctx.measureText(txt).width / 2;
+            const ty = logo_canvas.height / 2 + 460 * sh;
 
             ctx.strokeText(txt, tx, ty);
             ctx.fillText(txt, tx, ty);
         }
 
         function resizeLogoCanvas() {
-            const w = window.innerWidth;
-            const h = window.innerHeight;
+            const w = innerWidth;
+            const h = innerHeight;
             const nw = h * 16 / 9;
             if (nw <= w) {
                 logo_canvas.width = nw;
@@ -204,8 +194,8 @@
             }
         }
 
-        window.onresize = () => drawCanvas(logo_loading_percent);
-        window.onload = () => drawCanvas(logo_loading_percent);
+        onresize = () => drawCanvas(logo_loading_percent);
+        onload = () => drawCanvas(logo_loading_percent);
     </script>
 
     <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
@@ -214,7 +204,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-analytics-compat.js"></script>
 
     <script type="module">
-        // Import the functions you need from the SDKs you need
         import {
             initializeApp
         } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
@@ -224,11 +213,7 @@
         import {
             getAuth
         } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
-        // TODO: Add SDKs for Firebase products that you want to use
-        // https://firebase.google.com/docs/web/setup#available-libraries
 
-        // Your web app's Firebase configuration
-        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
         const firebaseConfig = {
             apiKey: "AIzaSyBlBKY94j-E2VqM65-DrVdJIXvgJIbmDWc",
             authDomain: "hill-climb-race-1games.firebaseapp.com",
@@ -239,20 +224,16 @@
             measurementId: "G-0B5CCEKHFQ"
         };
 
-
         window.dataLayer = window.dataLayer || [];
         window.gtag = function() {
             window.dataLayer.push(arguments);
-        }
+        };
 
-        window.gtag("config", firebaseConfig.measurementId, {
-            cookie_domain: window.location.hostname,
-            cookie_flags: "SameSite=None;Secure",
-        });
-        // Initialize Firebase
-        const app = firebase.initializeApp(firebaseConfig);
-        const auth = getAuth(app);
+        const app = initializeApp(firebaseConfig);
+        getAnalytics(app);
+        getAuth(app);
     </script>
+
 </body>
 
 </html>
