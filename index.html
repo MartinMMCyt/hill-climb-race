@@ -108,7 +108,13 @@
             </canvas>
         </div>
     </div>
-
+    <script>
+        /* Kill Unity RedirectDomain at the source. This safely no-ops the native call without breaking the game. */
+        window._RedirectDomain = function() {
+            console.warn("🚫 Unity RedirectDomain blocked");
+            return 0;
+        };
+    </script>
     <script>
         const container = document.querySelector("#unity-container");
         const canvas = document.querySelector("#unity-canvas");
